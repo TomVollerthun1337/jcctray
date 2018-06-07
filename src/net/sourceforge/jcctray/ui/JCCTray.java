@@ -27,6 +27,7 @@ import org.apache.log4j.Logger;
 import org.eclipse.jface.viewers.DoubleClickEvent;
 import org.eclipse.jface.viewers.IDoubleClickListener;
 import org.eclipse.jface.viewers.TableViewer;
+import org.eclipse.jface.viewers.ViewerComparator;
 import org.eclipse.jface.viewers.ViewerFilter;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.SelectionEvent;
@@ -35,19 +36,7 @@ import org.eclipse.swt.events.ShellAdapter;
 import org.eclipse.swt.events.ShellEvent;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
-import org.eclipse.swt.widgets.Button;
-import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.Display;
-import org.eclipse.swt.widgets.Menu;
-import org.eclipse.swt.widgets.MenuItem;
-import org.eclipse.swt.widgets.MessageBox;
-import org.eclipse.swt.widgets.Shell;
-import org.eclipse.swt.widgets.Table;
-import org.eclipse.swt.widgets.TableColumn;
-import org.eclipse.swt.widgets.TableItem;
-import org.eclipse.swt.widgets.ToolTip;
-import org.eclipse.swt.widgets.Tray;
-import org.eclipse.swt.widgets.TrayItem;
+import org.eclipse.swt.widgets.*;
 
 /**
  * The main JCCTray window.
@@ -193,8 +182,23 @@ public class JCCTray {
 				new Browser(traySettings).open(project.getWebUrl());
 			}
 		}
-
 	}
+
+	private final class SortHeaderListener implements Listener {
+		public void handleEvent(Event e) {
+			TableColumn column = (TableColumn) e.widget;
+			table.setSortColumn(column);
+
+            Table table = column.getParent();
+            if (column.equals(table.getSortColumn())) {
+                table.setSortDirection(table.getSortDirection() == SWT.UP ? SWT.DOWN : SWT.UP);
+            } else {
+                table.setSortColumn(column);
+                table.setSortDirection(SWT.UP);
+            }
+            tableViewer.refresh();
+		}
+	};
 
 	private Shell					shell;
 	private Display					display;
@@ -287,39 +291,66 @@ public class JCCTray {
 		tableColumn.setWidth(100);
 		tableColumn.setMoveable(true);
 		tableColumn.setText("Project");
+		tableColumn.addListener(SWT.Selection, new SortHeaderListener());
+
 
 		tableColumn = new TableColumn(table, SWT.NONE);
 		tableColumn.setWidth(100);
 		tableColumn.setMoveable(true);
 		tableColumn.setText("Host");
+		tableColumn.addListener(SWT.Selection, new SortHeaderListener());
 
 		tableColumn = new TableColumn(table, SWT.NONE);
 		tableColumn.setWidth(100);
 		tableColumn.setMoveable(true);
 		tableColumn.setText("Activity");
+		tableColumn.addListener(SWT.Selection, new SortHeaderListener());
 
 		tableColumn = new TableColumn(table, SWT.NONE);
 		tableColumn.setWidth(300);
 		tableColumn.setMoveable(true);
 		tableColumn.setText("Detail");
+		tableColumn.addListener(SWT.Selection, new SortHeaderListener());
 
 		tableColumn = new TableColumn(table, SWT.NONE);
 		tableColumn.setWidth(150);
 		tableColumn.setMoveable(true);
 		tableColumn.setText("Last Build Label");
+		tableColumn.addListener(SWT.Selection, new SortHeaderListener());
 
 		tableColumn = new TableColumn(table, SWT.NONE);
 		tableColumn.setWidth(150);
 		tableColumn.setMoveable(true);
 		tableColumn.setText("Last Build Time");
+		tableColumn.addListener(SWT.Selection, new SortHeaderListener());
 
+		ProjectLabelProvider labelProvider = new ProjectLabelProvider();
 		tableViewer = new TableViewer(table);
-		tableViewer.setLabelProvider(new ProjectLabelProvider());
+		tableViewer.setLabelProvider(labelProvider);
 		tableViewer.setContentProvider(new ProjectContentProvider());
 		tableViewer.setFilters(new ViewerFilter[] { new EnabledProjectsFilter(traySettings) });
+
+        tableViewer.setComparator(new ViewerComparator() {
+            public int compare(Viewer viewer, Object e1, Object e2) {
+                return compareElements((DashBoardProject) e1, (DashBoardProject)e2, labelProvider);
+            }
+        });
 	}
 
-	private void createMenus() {
+    private int compareElements(DashBoardProject e1, DashBoardProject e2, ProjectLabelProvider labelProvider) {
+        Table table = tableViewer.getTable();
+        int index = Arrays.asList(table.getColumns()).indexOf(table.getSortColumn());
+        int result = 0;
+        if (index != -1) {
+			String columnText1 = labelProvider.getColumnText(e1, index);
+			String columnText2 = labelProvider.getColumnText(e2, index);
+			result = columnText1.compareTo(columnText2);
+        }
+        return table.getSortDirection() == SWT.UP ? result : -result;
+    }
+
+
+    private void createMenus() {
 		menuBar = new Menu(shell, SWT.BAR);
 		createFileMenu();
 		createHelpMenu();

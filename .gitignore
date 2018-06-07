@@ -2,3 +2,6 @@ bin
 build
 console.log.txt
 jcctray.test.xml
+out
+.idea
+jcctray.iml
